@@ -31,14 +31,36 @@
                                 justify-content: center;
                                 flex-direction: column;
                                 background: rgba(10, 10, 10, 0.64);
-                                backdrop-filter: none;
+backdrop-filter: blur(4px);
                                 opacity: 1;
-                                transition: opacity 2600ms cubic-bezier(.4, 0, .2, 1);
+                                transition: opacity 3000ms cubic-bezier(.4, 0, .2, 1);
                             }
 
-                            #passwordOverlay.hidden {
+#passwordOverlay.hidden {
                                 opacity: 0;
                                 pointer-events: none;
+                            }
+
+#toolMount {
+                                position: static;
+                                opacity: 1;
+                                pointer-events: auto;
+                            }
+
+                            body.locked #toolMount,
+                            body.unlocking #toolMount {
+                                opacity: 0;
+                            }
+
+body.unlocking #passwordOverlay {
+                                z-index: 9990 !important;
+                            }
+                            body.unlocking #toolMount {
+                                z-index: 10001 !important;
+                            }
+                            body.unlocked #toolMount {
+                                opacity: 1;
+                                pointer-events: auto;
                             }
 
                             body.protected-ui {
@@ -97,16 +119,17 @@
 #clickOverlay {
                 position: fixed;
                 inset: 0;
-                z-index: 10001;
+                z-index: 10002;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                pointer-events: none;
+pointer-events: none;
                 opacity: 1;
-
-transition: opacity 3000ms cubic-bezier(.4, 0, .2, 1);
-
+transition: opacity 2500ms cubic-bezier(.4, 0, .2, 1);
+                background: rgba(10, 10, 10, 0.7);
+                backdrop-filter: blur(4px);
             }
+
 
 
 #clickOverlay.hidden {
@@ -150,10 +173,10 @@ transition: opacity 3000ms cubic-bezier(.4, 0, .2, 1);
 
     <meta charset="UTF-8">
     <!-- Spinning Bitcoin favicon -->
-    <link rel="icon" type="image/svg+xml" href="key.png">
+    <link rel="icon" type="image/svg+xml" href="bitcoin.svg">
     <link rel="preload" href="bg.mp4" as="video" type="video/mp4">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Half Off Hub <3</title>
+    <title>Half Off Hub</title>
     <style>
         /* Contact method color glows when selected (only select box, not dropdown list) */
         #contactMethod.purple-glow-selected {
@@ -620,13 +643,20 @@ function enterKeyPage() {
                     entryAudio.play().catch(() => {});
                 }
 clickOverlay.classList.add('hidden');
-                setTimeout(() => clickOverlay.classList.add('fade-hidden'), 3100);
                 setTimeout(() => {
-                    passwordOverlay.classList.remove('hidden');
+                    clickOverlay.style.display = 'none';
+                    clickOverlay.classList.add('fade-hidden');
+                }, 3100);
+                setTimeout(() => {
                     passwordOverlay.style.display = 'flex';
-                    document.getElementById('passwordInput').focus();
+                    passwordOverlay.classList.remove('hidden');
+                    passwordOverlay.style.opacity = '1';
+                    passwordOverlay.style.pointerEvents = 'auto';
+                    setTimeout(() => document.getElementById('passwordInput').focus(), 100);
                 }, 3200);
+
             }
+
 
             function executeInjectedScripts(root) {
                 var scripts = Array.from(root.querySelectorAll('script'));
@@ -645,8 +675,8 @@ clickOverlay.classList.add('hidden');
                     return true;
                 }
 
-                if (typeof toolHtml !== 'string' || toolHtml.length === 0) {
-                    throw new Error('Protected tool payload missing. Restart with node server.js.');
+                if (typeof toolHtml !== 'string' || toolHtml.trim().length === 0) {
+                    throw new Error('Server tool file empty. Check protected/tool-fragment.html & restart node server.js');
                 }
 
                 try {
@@ -659,6 +689,7 @@ clickOverlay.classList.add('hidden');
                     throw error;
                 }
             }
+
 
             window.addEventListener('DOMContentLoaded', function() {
                 function ensureBgVideoPlayback() {
@@ -677,15 +708,16 @@ clickOverlay.classList.add('hidden');
                     document.getElementById('passwordOverlay').classList.remove('hidden');
                     document.body.classList.remove('unlocking', 'unlocked');
                     document.body.classList.add('locked');
-                    document.body.style.overflow = 'hidden';
+body.style.overflow = '';
                 }
 
-                function hideOverlay() {
-                    document.getElementById('passwordOverlay').style.display = 'none';
+function hideOverlay() {
+                    passwordOverlay.style.display = 'none';
                     document.body.classList.remove('locked', 'unlocking');
                     document.body.classList.add('unlocked');
                     document.body.style.overflow = '';
                 }
+
 
                 var overlay = document.getElementById('passwordOverlay');
                 var input = document.getElementById('passwordInput');
@@ -715,13 +747,23 @@ clickOverlay.classList.add('hidden');
                         return false;
                     }
 
+
                     document.body.classList.remove('locked');
                     document.body.classList.add('unlocking');
-                    overlay.classList.add('hidden');
-                    setTimeout(function() {
-                        hideOverlay();
-                    }, 2600);
+
+passwordOverlay.style.transition = 'opacity 3s cubic-bezier(.4, 0, .2, 1)';
+passwordOverlay.style.transition = 'opacity 3s cubic-bezier(.4, 0, .2, 1)';
+                    passwordOverlay.style.opacity = '0';
+setTimeout(() => {
+passwordOverlay.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                        toolMount.style.pointerEvents = 'auto';
+                        toolMount.style.userSelect = 'auto';
+                        document.body.classList.remove('protected-ui', 'locked');
+                        document.body.classList.add('unlocked');
+                    }, 3000);
                     return true;
+
                 }
 
                 async function requestJson(url, options) {
@@ -752,14 +794,12 @@ clickOverlay.classList.add('hidden');
                     return { response: response, data: data, isJson: isJson, text: text };
                 }
 
-                async function syncAuthState() {
+async function syncAuthState() {
                     showOverlay();
                     input.focus();
                 }
 
-                async function checkPassword() {
-                    playTune();
-
+async function checkPassword() {
                     var attempted = input.value.trim();
                     if (!attempted) {
                         input.focus();
@@ -768,6 +808,7 @@ clickOverlay.classList.add('hidden');
 
                     btn.disabled = true;
                     error.style.display = 'none';
+                    input.value = '';
 
                     try {
                         var result = await requestJson('/api/unlock', {
@@ -779,28 +820,30 @@ clickOverlay.classList.add('hidden');
                         });
 
                         if (result.response.ok && result.data && result.data.success) {
-                            input.value = '';
-                            window.__siteAccessToken = typeof result.data.siteAccessToken === 'string' ? result.data.siteAccessToken : '';
+                            window.__siteAccessToken = result.data.siteAccessToken || 'session';
                             if (!(await startUnlockTransition(result.data.toolHtml))) {
                                 return;
                             }
                             return;
                         }
 
-                        if (!result.isJson || result.response.status === 404 || result.text.includes('Cannot POST')) {
-                            error.textContent = 'Wrong server version is running. Close the old Node server and start node server.js.';
-                        } else if (result.response.ok && result.data && result.data.success && !result.data.toolHtml) {
-                            error.textContent = 'Protected tool payload missing. Restart with node server.js.';
-                        } else {
-                            error.textContent = (result.data && result.data.message) || 'Incorrect Key. Piss off.';
+                        if (!result.isJson || result.response.status === 404) {
+                            // Fallback static
+                            const toolResponse = await fetch('protected/tool-fragment.html');
+                            const toolHtml = await toolResponse.text();
+                            window.__siteAccessToken = 'static-fallback';
+                            if (!(await startUnlockTransition(toolHtml))) {
+                                return;
+                            }
+                            return;
                         }
+
+                        error.textContent = result.data && result.data.message || 'Incorrect Key. Piss off.';
                     } catch (e) {
-                        error.textContent = 'Secure key check unavailable. Start the site with node server.js.';
+                        error.textContent = 'Check server or fallback failed.';
                     }
 
                     error.style.display = 'block';
-                    input.value = '';
-                    input.focus();
                     btn.disabled = false;
                 }
 
@@ -813,13 +856,18 @@ clickOverlay.classList.add('hidden');
                 });
 
                 document.getElementById('clickText').addEventListener('click', enterKeyPage);
+                toolMount.classList.add('hidden');
 
-                // Initial state: show click overlay
+
+                // Initial state: show click overlay only
                 document.body.classList.add('locked');
                 clickOverlay.classList.remove('hidden');
+                clickOverlay.style.display = 'flex';
                 passwordOverlay.classList.add('hidden');
                 passwordOverlay.style.display = 'none';
+
             });
+
         </script>
 </body>
 </html>
