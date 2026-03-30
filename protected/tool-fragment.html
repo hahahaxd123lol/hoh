@@ -1,0 +1,482 @@
+<div class="container" style="animation: redGlow 2.5s linear infinite;">
+    <div class="header">
+        <div class="discount-badge">50% OFF - SERIOUS ORDERS ONLY</div>
+        <h1><span style="font-size:1.2em;vertical-align:middle;">&#128520;</span> HALF OFF HUB</h1>
+        <p>We will contact you within 24-48 hours to confirm and finalize your order.</p>
+    </div>
+    <div class="serious-warning" style="animation: redGlow 2.5s linear infinite;">
+        <span style="font-size:1.2em;vertical-align:middle;">&#9888;&#65039;</span> <b>NO TIME WASTERS.</b> Non-payment will result in permanent IP and customer blacklisting. <span style="color:#fff;">We do not tolerate unserious buyers.</span>
+    </div>
+    <div class="success-message" id="successMessage" style="animation: redGlow 2.5s linear infinite;">
+        <span style="color:#4caf50;font-weight:bold;">&#10004; Order submitted successfully! Your order will be processed shortly.</span>
+    </div>
+    <div class="error-message" id="errorMessage" style="animation: redGlow 2.5s linear infinite;"></div>
+    <div class="loading" id="loading" style="animation: redGlow 2.5s linear infinite;">
+        <span id="loadingText">Processing order...</span>
+    </div>
+    <form id="orderForm">
+        <div class="form-group">
+            <label>Products</label>
+            <div class="products-section" id="productsContainer" style="animation: redGlow 2.5s linear infinite;">
+                <div class="product-input-group">
+                    <input
+                        type="url"
+                        class="product-input"
+                        placeholder="https://example.com/product"
+                        required
+                    >
+                    <button type="button" class="btn-remove" style="display:none;">Remove</button>
+                </div>
+            </div>
+            <button type="button" class="btn-add-product" id="addProductBtn">
+                + Add More Products (Max 5)
+            </button>
+        </div>
+
+        <div class="form-group" id="priceInfo" style="display:none;"></div>
+
+        <div class="form-group">
+            <label>Order Type <span class="required">*</span></label>
+            <div class="radio-group">
+                <div class="radio-item">
+                    <input type="radio" id="regular" name="orderType" value="Regular Item - Clothing/Shoes" required>
+                    <label for="regular">Clothing/Shoes</label>
+                </div>
+                <div class="radio-item">
+                    <input type="radio" id="tech" name="orderType" value="Tech Order - iPhone/Laptop">
+                    <label for="tech">Tech Order</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" id="sizeGroup">
+            <label id="sizeLabel">Sizes <span class="required">*</span></label>
+            <div class="products-section" id="sizeContainer" style="animation: redGlow 2.5s linear infinite;"></div>
+            <div class="size-helper-text">Match each size to the product number above so every item has its own size.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="paymentMethod">Payment Method <span class="required">*</span></label>
+            <select id="paymentMethod" name="paymentMethod" required>
+                <option value="">Choose method</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Crypto">Crypto</option>
+                <option value="PayPal (F&amp;F)">PayPal (F&amp;F)</option>
+                <option value="Klarna">Klarna</option>
+                <option value="Cash">Cash (trusted customers only)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="fullName">Name <span class="required">*</span></label>
+            <input
+                type="text"
+                id="fullName"
+                name="fullName"
+                placeholder="Your name"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="contactMethod">Best Contact <span class="required">*</span></label>
+            <select id="contactMethod" name="contactMethod" required>
+                <option value="">Select method</option>
+                <option value="Discord">Discord</option>
+                <option value="Telegram">Telegram</option>
+                <option value="Snapchat">Snapchat</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Email">Email</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="contactDetails" id="contactDetailsLabel">Contact Details <span class="required">*</span></label>
+            <input
+                type="text"
+                id="contactDetails"
+                name="contactDetails"
+                placeholder="Contact detail"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="extraInfo">Notes (<span class="optional-white">optional</span>)</label>
+            <textarea
+                id="extraInfo"
+                name="extraInfo"
+                placeholder="Add any notes, special requests, etc."
+            ></textarea>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="btn-submit">Submit Request</button>
+            <button type="reset" class="btn-reset">Clear</button>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    const MAX_PRODUCTS = 5;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function getSiteAccessToken() {
+        return typeof window.__siteAccessToken === 'string' ? window.__siteAccessToken : '';
+    }
+
+    async function requestJson(url, options) {
+        const requestOptions = options ? { ...options } : {};
+        const headers = new Headers(requestOptions.headers || {});
+
+        if (getSiteAccessToken()) {
+            headers.set('X-Site-Access-Token', getSiteAccessToken());
+        }
+
+        if (requestOptions.body && !headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
+        }
+
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            ...requestOptions,
+            headers
+        });
+
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (error) {
+            data = null;
+        }
+
+        return { response, data };
+    }
+
+    function bindRemoveButton(button) {
+        button.addEventListener('click', function () {
+            removeProduct(button);
+        });
+    }
+
+    function syncRemoveButtons() {
+        const groups = Array.from(document.querySelectorAll('#productsContainer .product-input-group'));
+        groups.forEach(function (group) {
+            const button = group.querySelector('.btn-remove');
+            if (!button) {
+                return;
+            }
+
+            button.style.display = groups.length > 1 ? '' : 'none';
+        });
+    }
+
+    function updateContactGlow() {
+        const contactSelect = byId('contactMethod');
+        if (!contactSelect) {
+            return;
+        }
+
+        contactSelect.classList.remove('purple-glow-selected', 'blue-glow-selected', 'yellow-glow-selected', 'claret-glow-selected', 'white-glow-selected', 'pink-glow-selected-contact');
+        switch (contactSelect.value) {
+            case 'Discord':
+                contactSelect.classList.add('purple-glow-selected');
+                break;
+            case 'Telegram':
+                contactSelect.classList.add('blue-glow-selected');
+                break;
+            case 'Snapchat':
+                contactSelect.classList.add('yellow-glow-selected');
+                break;
+            case 'Instagram':
+                contactSelect.classList.add('pink-glow-selected-contact');
+                break;
+            case 'Email':
+                contactSelect.classList.add('white-glow-selected');
+                break;
+        }
+    }
+
+    function updatePaymentGlow() {
+        const paymentSelect = byId('paymentMethod');
+        if (!paymentSelect) {
+            return;
+        }
+
+        paymentSelect.classList.remove('pink-glow-selected', 'orange-glow-selected', 'blue-glow-selected', 'green-glow-selected', 'red-glow-selected');
+        switch (paymentSelect.value) {
+            case 'Klarna':
+                paymentSelect.classList.add('pink-glow-selected');
+                break;
+            case 'Crypto':
+                paymentSelect.classList.add('orange-glow-selected');
+                break;
+            case 'PayPal (F&F)':
+                paymentSelect.classList.add('blue-glow-selected');
+                break;
+            case 'Cash':
+                paymentSelect.classList.add('green-glow-selected');
+                break;
+            case 'Bank Transfer':
+                paymentSelect.classList.add('red-glow-selected');
+                break;
+        }
+    }
+
+    function updateContactDetailsBox() {
+        const methodSelect = byId('contactMethod');
+        const label = byId('contactDetailsLabel');
+        const input = byId('contactDetails');
+        if (!methodSelect || !label || !input) {
+            return;
+        }
+
+        let text = 'Contact Details';
+        let placeholder = 'Contact detail';
+
+        if (methodSelect.value === 'Email') {
+            text = 'Email Address';
+            placeholder = 'Enter your email';
+        } else if (methodSelect.value === 'Discord') {
+            text = 'Discord Username';
+            placeholder = 'e.g. user';
+        } else if (methodSelect.value === 'Telegram') {
+            text = 'Telegram Username';
+            placeholder = 'e.g. @username';
+        } else if (methodSelect.value === 'Snapchat') {
+            text = 'Snapchat Username';
+            placeholder = 'e.g. snapuser';
+        } else if (methodSelect.value === 'Instagram') {
+            text = 'Instagram Username';
+            placeholder = 'e.g. @instauser';
+        }
+
+        label.innerHTML = text + ' <span class="required">*</span>';
+        input.placeholder = placeholder;
+    }
+
+    function updateAddProductButton() {
+        const container = byId('productsContainer');
+        const button = byId('addProductBtn');
+        if (!container || !button) {
+            return;
+        }
+
+        const currentCount = container.querySelectorAll('.product-input-group').length;
+        button.disabled = currentCount >= MAX_PRODUCTS;
+        syncRemoveButtons();
+    }
+
+    function syncSizeRequiredState() {
+        const tech = byId('tech');
+        const requiresSize = !tech || !tech.checked;
+
+        document.querySelectorAll('#sizeContainer .size-input').forEach(function (input) {
+            input.required = requiresSize;
+            input.disabled = !requiresSize;
+        });
+    }
+
+    function syncSizeInputs() {
+        const productsContainer = byId('productsContainer');
+        const sizeContainer = byId('sizeContainer');
+        if (!productsContainer || !sizeContainer) {
+            return;
+        }
+
+        const productCount = productsContainer.querySelectorAll('.product-input-group').length;
+        const previousValues = Array.from(sizeContainer.querySelectorAll('.size-input')).map(function (input) {
+            return input.value;
+        });
+
+        sizeContainer.innerHTML = '';
+
+        for (let index = 0; index < productCount; index += 1) {
+            const sizeGroup = document.createElement('div');
+            sizeGroup.className = 'product-input-group size-input-group';
+            sizeGroup.innerHTML = [
+                '<span class="size-item-label">Item ' + (index + 1) + '</span>',
+                '<input type="text" class="size-input" name="itemSize' + (index + 1) + '" placeholder="e.g. M, UK10, XL" autocomplete="off">'
+            ].join('');
+
+            const sizeInput = sizeGroup.querySelector('.size-input');
+            sizeInput.value = previousValues[index] || '';
+            sizeContainer.appendChild(sizeGroup);
+        }
+
+        syncSizeRequiredState();
+    }
+
+    function addProduct() {
+        const container = byId('productsContainer');
+        if (!container) {
+            return;
+        }
+
+        const currentCount = container.querySelectorAll('.product-input-group').length;
+        if (currentCount >= MAX_PRODUCTS) {
+            alert('Maximum ' + MAX_PRODUCTS + ' products allowed');
+            return;
+        }
+
+        const productGroup = document.createElement('div');
+        productGroup.className = 'product-input-group';
+        productGroup.innerHTML = [
+            '<input type="url" class="product-input" placeholder="https://example.com/product" required>',
+            '<button type="button" class="btn-remove">Remove</button>'
+        ].join('');
+
+        bindRemoveButton(productGroup.querySelector('.btn-remove'));
+        container.appendChild(productGroup);
+        updateAddProductButton();
+        syncSizeInputs();
+    }
+
+    function removeProduct(button) {
+        const container = byId('productsContainer');
+        if (!container) {
+            return;
+        }
+
+        const groups = container.querySelectorAll('.product-input-group');
+        if (groups.length <= 1) {
+            alert('You must have at least one product');
+            return;
+        }
+
+        button.parentElement.remove();
+        updateAddProductButton();
+        syncSizeInputs();
+    }
+
+    function updateSizeBox() {
+        const tech = byId('tech');
+        const sizeGroup = byId('sizeGroup');
+        if (!tech || !sizeGroup) {
+            return;
+        }
+
+        sizeGroup.style.display = tech.checked ? 'none' : '';
+        syncSizeRequiredState();
+    }
+
+    async function submitOrder(event) {
+        event.preventDefault();
+
+        const loadingEl = byId('loading');
+        const loadingText = byId('loadingText');
+        const successEl = byId('successMessage');
+        const errorEl = byId('errorMessage');
+        const form = byId('orderForm');
+
+        successEl.classList.remove('show');
+        errorEl.classList.remove('show');
+        loadingEl.classList.add('show');
+        loadingText.textContent = 'Processing order...';
+
+        try {
+            const formData = new FormData(form);
+            const products = [];
+            const isTechOrder = byId('tech') && byId('tech').checked;
+            document.querySelectorAll('.product-input').forEach(function (input, index) {
+                if (input.value.trim()) {
+                    products.push((index + 1) + '. ' + input.value);
+                }
+            });
+
+            const sizes = Array.from(document.querySelectorAll('#sizeContainer .size-input')).map(function (input, index) {
+                return (index + 1) + '. ' + (input.value.trim() || 'Not specified');
+            });
+
+            let thumbnailUrl;
+            if (products.length > 0) {
+                const productUrl = products[0].replace(/^\d+\.\s*/, '');
+                try {
+                    const ogResp = await fetch('https://opengraph.io/api/1.1/site/' + encodeURIComponent(productUrl) + '?app_id=public');
+                    if (ogResp.ok) {
+                        const ogData = await ogResp.json();
+                        if (ogData && ogData.hybridGraph && ogData.hybridGraph.image) {
+                            thumbnailUrl = ogData.hybridGraph.image;
+                        }
+                    }
+                } catch (err) {
+                    // Ignore thumbnail fetch errors.
+                }
+            }
+
+            const result = await requestJson('/api/order', {
+                method: 'POST',
+                body: JSON.stringify({
+                    products: products,
+                    orderType: formData.get('orderType') || '',
+                    sizes: sizes,
+                    isTechOrder: isTechOrder,
+                    paymentMethod: formData.get('paymentMethod') || '',
+                    contactMethod: formData.get('contactMethod') || '',
+                    contactDetails: formData.get('contactDetails') || '',
+                    fullName: formData.get('fullName') || '',
+                    extraInfo: formData.get('extraInfo') || '',
+                    thumbnailUrl: thumbnailUrl || ''
+                })
+            });
+
+            if (!result.response.ok || !result.data || !result.data.success) {
+                throw new Error((result.data && result.data.message) || 'Failed to submit order');
+            }
+
+            loadingEl.classList.remove('show');
+            successEl.classList.add('show');
+            form.reset();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            updateAddProductButton();
+            syncSizeInputs();
+            updateSizeBox();
+            updateContactGlow();
+            updatePaymentGlow();
+            updateContactDetailsBox();
+
+            setTimeout(function () {
+                successEl.classList.remove('show');
+            }, 5000);
+        } catch (error) {
+            loadingEl.classList.remove('show');
+            errorEl.textContent = 'Error: ' + error.message + '. Please try again.';
+            errorEl.classList.add('show');
+            console.error('Form submission error:', error);
+        }
+    }
+
+    document.querySelectorAll('#productsContainer .btn-remove').forEach(bindRemoveButton);
+
+    byId('addProductBtn').addEventListener('click', addProduct);
+    byId('regular').addEventListener('change', updateSizeBox);
+    byId('tech').addEventListener('change', updateSizeBox);
+    byId('contactMethod').addEventListener('change', function () {
+        updateContactGlow();
+        updateContactDetailsBox();
+    });
+    byId('paymentMethod').addEventListener('change', updatePaymentGlow);
+    byId('orderForm').addEventListener('submit', submitOrder);
+    byId('orderForm').addEventListener('reset', function () {
+        window.setTimeout(function () {
+            updateAddProductButton();
+            syncSizeInputs();
+            updateSizeBox();
+            updateContactGlow();
+            updatePaymentGlow();
+            updateContactDetailsBox();
+        }, 0);
+    });
+
+    updateAddProductButton();
+    syncSizeInputs();
+    updateSizeBox();
+    updateContactGlow();
+    updatePaymentGlow();
+    updateContactDetailsBox();
+})();
+</script>

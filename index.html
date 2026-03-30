@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+                            <style>
+                            body.locked {
+                                overflow: hidden;
+                            }
+
+                            body.locked .container,
+                            body.unlocking .container {
+                                opacity: 0;
+                                transform: translateY(32px) scale(0.985);
+                                filter: none;
+                                pointer-events: none;
+                                user-select: none;
+                            }
+
+                            body.unlocked .container {
+                                opacity: 1;
+                                transform: translateY(0) scale(1);
+                                filter: none;
+                                pointer-events: auto;
+                            }
+
+                            #passwordOverlay {
+                                position: fixed;
+                                inset: 0;
+                                z-index: 10000;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                flex-direction: column;
+                                background: rgba(10, 10, 10, 0.64);
+                                backdrop-filter: none;
+                                opacity: 1;
+                                transition: opacity 2600ms cubic-bezier(.4, 0, .2, 1);
+                            }
+
+                            #passwordOverlay.hidden {
+                                opacity: 0;
+                                pointer-events: none;
+                            }
+
+                            body.protected-ui {
+                                -webkit-touch-callout: none;
+                                -webkit-tap-highlight-color: transparent;
+                            }
+
+                            body.protected-ui *:not(input):not(textarea):not(select) {
+                                user-select: none;
+                                -webkit-user-select: none;
+                            }
+
+                            body.protected-ui img,
+                            body.protected-ui video {
+                                -webkit-user-drag: none;
+                            }
+                            </style>
+                    <style>
+                    /* Background video styling */
+                    #bgVideo {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100vw;
+                        height: 100vh;
+                        object-fit: cover;
+                        z-index: -1;
+                        opacity: 0.68;
+                        pointer-events: none;
+                        background: transparent;
+                    }
+                    </style>
+            <style>
+            /* Key icon inside password input */
+            .key-input-wrapper {
+                position: relative;
+                width: 100%;
+                margin-bottom: 18px;
+            }
+            .key-input-wrapper img.key-icon {
+                position: absolute;
+                left: 12px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 22px;
+                height: 22px;
+                pointer-events: none;
+                filter: drop-shadow(0 0 4px #a259ff88);
+            }
+            .key-input-wrapper input {
+                padding-left: 44px !important;
+            }
+            </style>
+    <meta charset="UTF-8">
+    <!-- Spinning Bitcoin favicon -->
+    <link rel="icon" type="image/svg+xml" href="bitcoin.svg">
+    <link rel="preload" href="bg.mp4" as="video" type="video/mp4">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Half Off Hub</title>
+    <style>
+        /* Contact method color glows when selected (only select box, not dropdown list) */
+        #contactMethod.purple-glow-selected {
+            box-shadow: 0 0 0 3px #a259ff, 0 0 12px #a259ff;
+            border-color: #a259ff;
+        }
+        #contactMethod.blue-glow-selected {
+            box-shadow: 0 0 0 3px #2196f3, 0 0 12px #2196f3;
+            border-color: #2196f3;
+        }
+        #contactMethod.yellow-glow-selected {
+            box-shadow: 0 0 0 3px #ffeb3b, 0 0 12px #ffeb3b;
+            border-color: #ffeb3b;
+        }
+        #contactMethod.pink-glow-selected-contact {
+            box-shadow: 0 0 0 3px #ff69b4, 0 0 12px #ff69b4;
+            border-color: #ff69b4;
+        }
+        #contactMethod.white-glow-selected {
+            box-shadow: 0 0 0 3px #fff, 0 0 12px #fff;
+            border-color: #fff;
+        }
+                        /* Payment method color glows when selected */
+        /* Payment method color glows when selected (only select box, not dropdown list) */
+        #paymentMethod.orange-glow-selected {
+            box-shadow: 0 0 0 3px #ff9800, 0 0 12px #ff9800;
+            border-color: #ff9800;
+        }
+        #paymentMethod.blue-glow-selected {
+            box-shadow: 0 0 0 3px #2196f3, 0 0 12px #2196f3;
+            border-color: #2196f3;
+        }
+        #paymentMethod.green-glow-selected {
+            box-shadow: 0 0 0 3px #4caf50, 0 0 12px #4caf50;
+            border-color: #4caf50;
+        }
+        #paymentMethod.red-glow-selected {
+            box-shadow: 0 0 0 3px #ff003c, 0 0 12px #ff003c;
+            border-color: #ff003c;
+        }
+                /* Pink glow for Klarna selected in the select box */
+        #paymentMethod.pink-glow-selected {
+            box-shadow: 0 0 0 3px #ff69b4, 0 0 12px #ff69b4;
+            border-color: #e6007a;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        @keyframes purpleGlow {
+            0% {
+                box-shadow: 0 0 10px 0 #a259ff88, 0 0 4px #a259ff55;
+                border-color: #a259ff;
+            }
+            25% {
+                box-shadow: 0 0 15px 2px #a259ff55, 0 0 6px #a259ff44;
+                border-color: #b47aff;
+            }
+            50% {
+                box-shadow: 0 0 20px 4px #a259ff44, 0 0 8px #a259ff33;
+                border-color: #a259ff;
+            }
+            75% {
+                box-shadow: 0 0 15px 2px #a259ff55, 0 0 6px #a259ff44;
+                border-color: #b47aff;
+            }
+            100% {
+                box-shadow: 0 0 10px 0 #a259ff88, 0 0 4px #a259ff55;
+                border-color: #a259ff;
+            }
+        }
+        .container {
+            background: rgba(24, 24, 27, 0.76);
+            border-radius: 16px;
+            box-shadow: 0 0 40px 0 #a259ff44, 0 2px 8px #000a;
+            max-width: 600px;
+            width: 100%;
+            padding: 40px 32px 32px 32px;
+            border: 2px solid #a259ff;
+            position: relative;
+            animation: purpleGlow 2.5s linear infinite;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: none;
+            transition: opacity 900ms ease, transform 900ms ease, filter 900ms ease;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #a259ff;
+            letter-spacing: 2px;
+            font-family: 'Fira Mono', monospace;
+            text-shadow: 0 0 8px #a259ff99, 0 0 2px #fff;
+        }
+        .header p {
+            color: #e0e0e0;
+            font-size: 15px;
+            font-family: 'Fira Mono', monospace;
+        }
+        .discount-badge {
+            display: inline-block;
+            background: #a259ff;
+            color: #fff;
+            padding: 8px 22px;
+            border-radius: 30px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 15px;
+            letter-spacing: 1px;
+            box-shadow: 0 0 10px #a259ff99;
+            text-shadow: 0 0 2px #fff;
+            border: 1.5px solid #fff2;
+        }
+        .form-group {
+            margin-bottom: 22px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: #a259ff;
+            font-size: 15px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 2px #fff2;
+        }
+        .required {
+            color: #fff;
+            background: #a259ff;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 12px;
+            margin-left: 4px;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="url"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 13px 14px;
+            border: 1.5px solid #a259ff;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: 'Fira Mono', monospace;
+            background: rgba(16, 16, 20, 0.78);
+            color: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="url"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #fff;
+            box-shadow: 0 0 0 2px #a259ff99;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .radio-group,
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .radio-item,
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+        .radio-item input[type="radio"],
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            accent-color: #a259ff;
+        }
+        .radio-item label,
+        .checkbox-item label {
+            margin: 0;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+        .products-section {
+            background: rgba(24, 24, 27, 0.72);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1.5px solid #a259ff;
+            box-shadow: 0 0 8px #a259ff33;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        .product-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: flex-end;
+        }
+        .product-input-group input {
+            flex: 1;
+        }
+        .size-input-group {
+            align-items: center;
+        }
+        .size-item-label {
+            min-width: 72px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            opacity: 0.88;
+        }
+        .size-input-group input {
+            flex: 1;
+        }
+        .size-helper-text {
+            margin-top: 10px;
+            color: #d8d8e8;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .btn-remove {
+            background: #0a0a0a;
+            color: #a259ff;
+            border: 1.5px solid #a259ff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 6px #a259ff33;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        .btn-remove:hover {
+            background: #a259ff;
+            color: #fff;
+            box-shadow: 0 0 12px #a259ff99;
+        }
+        .btn-add-product {
+            background: #0a0a0a;
+            color: #a259ff;
+            border: 1.5px solid #a259ff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 10px;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 6px #a259ff33;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        .btn-add-product:hover {
+            background: #a259ff;
+            color: #fff;
+            box-shadow: 0 0 12px #a259ff99;
+        }
+        .btn-add-product:disabled {
+            background: #222;
+            color: #888;
+            border: 1.5px solid #333;
+            cursor: not-allowed;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .btn-submit,
+        .btn-reset {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 1px;
+            font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+        }
+        .btn-submit {
+            background: #a259ff;
+            color: #fff;
+            box-shadow: 0 0 10px #a259ff55;
+            border: 1.5px solid #a259ff;
+        }
+        .btn-submit:hover {
+            background: #0a0a0a;
+            color: #a259ff;
+            box-shadow: 0 0 18px #a259ff99;
+            border: 1.5px solid #fff;
+            transform: scale(1.03);
+        }
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-reset {
+            background: #a259ff;
+            color: #fff;
+            border: 1.5px solid #a259ff;
+        }
+        .btn-reset:hover {
+            background: #0a0a0a;
+            color: #a259ff;
+            border: 1.5px solid #fff;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: rgba(24, 24, 27, 0.74);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #a259ff;
+            font-weight: 900;
+            border: 1.5px solid #a259ff;
+            box-shadow: 0 0 8px #a259ff33;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        .loading.show {
+            display: block;
+        }
+        .success-message {
+            display: none;
+            padding: 15px;
+            background: rgba(10, 10, 10, 0.7);
+            border: 1.5px solid #4caf50;
+            border-radius: 8px;
+            color: #4caf50;
+            margin-bottom: 20px;
+            font-weight: 700;
+            box-shadow: 0 0 8px #4caf5033;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        .success-message.show {
+            display: block;
+        }
+        .error-message {
+            display: none;
+            padding: 15px;
+            background: rgba(10, 10, 10, 0.7);
+            border: 1.5px solid #a259ff;
+            border-radius: 8px;
+            color: #a259ff;
+            margin-bottom: 20px;
+            font-weight: 700;
+            box-shadow: 0 0 8px #a259ff33;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        .error-message.show {
+            display: block;
+        }
+        .serious-warning {
+            background: rgba(10, 10, 10, 0.7);
+            color: #a259ff;
+            border: 2px solid #a259ff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 16px;
+            font-family: 'Fira Mono', monospace;
+            text-align: center;
+            font-weight: 900;
+            letter-spacing: 1px;
+            box-shadow: 0 0 12px #a259ff99;
+            text-shadow: 0 0 2px #fff2;
+            animation: purpleGlow 2.5s linear infinite;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 18px;
+            }
+            .header h1 {
+                font-size: 22px;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+            .btn-submit,
+            .btn-reset {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="locked protected-ui">
+                        <video id="bgVideo" autoplay loop muted playsinline preload="auto" draggable="false">
+                            <source src="bg.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+    <!-- Password overlay is now a direct child of body, not inside main site container -->
+    <div id="passwordOverlay">
+        <div style="background:rgba(24,24,27,0.74);border-radius:16px;box-shadow:0 0 40px 0 #a259ff44,0 2px 8px #000a;padding:40px 32px 32px 32px;border:2px solid #a259ff;max-width:90vw;width:350px;text-align:center;">
+            <h2 style="color:#a259ff;font-family:'Fira Mono',monospace;margin-bottom:18px;">Half Off Hub</h2>
+            <div class="key-input-wrapper">
+                <img src="key.png" alt="key icon" class="key-icon" draggable="false">
+                <input id="passwordInput" type="password" placeholder="Message Me For Key" style="width:100%;padding:13px 14px;border:1.5px solid #a259ff;border-radius:8px;font-size:15px;font-family:'Fira Mono',monospace;background:rgba(16,16,20,0.78);color:#fff;" autofocus>
+            </div>
+            <button id="passwordBtn" style="width:100%;padding:13px 0;background:#a259ff;color:#fff;border:none;border-radius:8px;font-size:16px;font-family:'Fira Mono',monospace;font-weight:700;cursor:pointer;">Enter</button>
+            <div id="passwordError" style="color:#ff003c;margin-top:12px;position:relative;top:6px;display:none;font-family:'Fira Mono',monospace;font-size:14px;">Incorrect Key. Piss off.</div>
+        </div>
+    </div>
+        <audio id="instant-audio" preload="auto" loop style="display:none;">
+            <source src="venz.mp3" type="audio/mpeg">
+        </audio>
+        <div id="toolMount"></div>
+
+        <script>
+            var audio = document.getElementById('instant-audio');
+            var bgVideo = document.getElementById('bgVideo');
+            var toolMount = document.getElementById('toolMount');
+            var played = false;
+            var toolLoaded = false;
+            window.__siteAccessToken = '';
+
+            audio.loop = true;
+
+            function playTune() {
+                if (!played) {
+                    audio.currentTime = 0;
+                    audio.play();
+                    played = true;
+                }
+            }
+
+            function executeInjectedScripts(root) {
+                var scripts = Array.from(root.querySelectorAll('script'));
+                scripts.forEach(function(oldScript) {
+                    var newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(function(attribute) {
+                        newScript.setAttribute(attribute.name, attribute.value);
+                    });
+                    newScript.textContent = oldScript.textContent;
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
+            }
+
+            async function loadProtectedTool(toolHtml) {
+                if (toolLoaded) {
+                    return true;
+                }
+
+                if (typeof toolHtml !== 'string' || toolHtml.length === 0) {
+                    throw new Error('Protected tool payload missing. Restart with node server.js.');
+                }
+
+                try {
+                    toolMount.innerHTML = toolHtml;
+                    executeInjectedScripts(toolMount);
+                    toolLoaded = true;
+                    return true;
+                } catch (error) {
+                    toolMount.innerHTML = '';
+                    throw error;
+                }
+            }
+
+            window.addEventListener('DOMContentLoaded', function() {
+                function ensureBgVideoPlayback() {
+                    if (!bgVideo) return;
+                    bgVideo.muted = true;
+                    bgVideo.defaultMuted = true;
+                    var playAttempt = bgVideo.play();
+                    if (playAttempt && typeof playAttempt.catch === 'function') {
+                        playAttempt.catch(function() {});
+                    }
+                }
+
+                function showOverlay() {
+                    window.__siteAccessToken = '';
+                    document.getElementById('passwordOverlay').style.display = 'flex';
+                    document.getElementById('passwordOverlay').classList.remove('hidden');
+                    document.body.classList.remove('unlocking', 'unlocked');
+                    document.body.classList.add('locked');
+                    document.body.style.overflow = 'hidden';
+                }
+
+                function hideOverlay() {
+                    document.getElementById('passwordOverlay').style.display = 'none';
+                    document.body.classList.remove('locked', 'unlocking');
+                    document.body.classList.add('unlocked');
+                    document.body.style.overflow = '';
+                }
+
+                var overlay = document.getElementById('passwordOverlay');
+                var input = document.getElementById('passwordInput');
+                var btn = document.getElementById('passwordBtn');
+                var error = document.getElementById('passwordError');
+
+                try {
+                    localStorage.removeItem('sitePasswordObj');
+                    localStorage.removeItem('siteLoggedIn');
+                } catch (e) {
+                    // Ignore storage errors.
+                }
+
+                ensureBgVideoPlayback();
+                bgVideo.addEventListener('loadeddata', ensureBgVideoPlayback, { once: true });
+                bgVideo.addEventListener('canplay', ensureBgVideoPlayback);
+
+                async function startUnlockTransition(toolHtml) {
+                    error.style.display = 'none';
+
+                    try {
+                        await loadProtectedTool(toolHtml);
+                    } catch (loadError) {
+                        error.textContent = loadError && loadError.message ? loadError.message : 'Protected tool failed to load.';
+                        error.style.display = 'block';
+                        btn.disabled = false;
+                        return false;
+                    }
+
+                    document.body.classList.remove('locked');
+                    document.body.classList.add('unlocking');
+                    overlay.classList.add('hidden');
+                    setTimeout(function() {
+                        hideOverlay();
+                    }, 2600);
+                    return true;
+                }
+
+                async function requestJson(url, options) {
+                    var response = await fetch(url, {
+                        credentials: 'same-origin',
+                        ...options
+                    });
+
+                    var contentType = response.headers.get('content-type') || '';
+                    var isJson = contentType.toLowerCase().includes('application/json');
+                    var data = null;
+                    var text = '';
+
+                    if (isJson) {
+                        try {
+                            data = await response.json();
+                        } catch (e) {
+                            data = null;
+                        }
+                    } else {
+                        try {
+                            text = await response.text();
+                        } catch (e) {
+                            text = '';
+                        }
+                    }
+
+                    return { response: response, data: data, isJson: isJson, text: text };
+                }
+
+                async function syncAuthState() {
+                    showOverlay();
+                    input.focus();
+                }
+
+                async function checkPassword() {
+                    playTune();
+
+                    var attempted = input.value.trim();
+                    if (!attempted) {
+                        input.focus();
+                        return;
+                    }
+
+                    btn.disabled = true;
+                    error.style.display = 'none';
+
+                    try {
+                        var result = await requestJson('/api/unlock', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ password: attempted })
+                        });
+
+                        if (result.response.ok && result.data && result.data.success) {
+                            input.value = '';
+                            window.__siteAccessToken = typeof result.data.siteAccessToken === 'string' ? result.data.siteAccessToken : '';
+                            if (!(await startUnlockTransition(result.data.toolHtml))) {
+                                return;
+                            }
+                            return;
+                        }
+
+                        if (!result.isJson || result.response.status === 404 || result.text.includes('Cannot POST')) {
+                            error.textContent = 'Wrong server version is running. Close the old Node server and start node server.js.';
+                        } else if (result.response.ok && result.data && result.data.success && !result.data.toolHtml) {
+                            error.textContent = 'Protected tool payload missing. Restart with node server.js.';
+                        } else {
+                            error.textContent = (result.data && result.data.message) || 'Incorrect Key. Piss off.';
+                        }
+                    } catch (e) {
+                        error.textContent = 'Secure key check unavailable. Start the site with node server.js.';
+                    }
+
+                    error.style.display = 'block';
+                    input.value = '';
+                    input.focus();
+                    btn.disabled = false;
+                }
+
+                btn.addEventListener('click', checkPassword);
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        checkPassword();
+                    }
+                });
+
+                showOverlay();
+                syncAuthState();
+            });
+        </script>
+</body>
+</html>
