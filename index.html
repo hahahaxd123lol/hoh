@@ -92,9 +92,65 @@
                 padding-left: 44px !important;
             }
             </style>
+            <style>
+            /* Click To Enter overlay */
+#clickOverlay {
+                position: fixed;
+                inset: 0;
+                z-index: 10001;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                pointer-events: none;
+                opacity: 1;
+
+transition: opacity 3000ms cubic-bezier(.4, 0, .2, 1);
+
+            }
+
+
+#clickOverlay.hidden {
+                opacity: 0;
+                pointer-events: none !important;
+            }
+
+            #clickOverlay.fade-hidden {
+                display: none;
+            }
+
+            #clickText {
+                font-family: 'Fira Mono', monospace;
+                font-size: clamp(28px, 8vw, 56px);
+                color: #a259ff;
+                letter-spacing: 3px;
+                font-weight: 900;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                text-rendering: optimizeLegibility;
+                text-shadow: 0 0 12px #a259ff77, 0 0 6px #a259ff55, 0 0 3px #a259ff;
+                margin: 0;
+                user-select: none;
+                cursor: pointer;
+                pointer-events: auto;
+                transition: all 0.3s ease;
+            }
+
+            #clickText:hover {
+                transform: scale(1.05);
+                text-shadow: 0 0 24px #a259ff99, 0 0 12px #a259ff66, 0 0 6px #a259ff44;
+            }
+
+            @media (max-width: 600px) {
+                #clickText {
+                    font-size: clamp(24px, 9vw, 44px);
+                    letter-spacing: 2px;
+                }
+            }
+            </style>
+
     <meta charset="UTF-8">
     <!-- Spinning Bitcoin favicon -->
-    <link rel="icon" type="image/svg+xml" href="key.png">
+    <link rel="icon" type="image/svg+xml" href="bitcoin.svg">
     <link rel="preload" href="bg.mp4" as="video" type="video/mp4">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Half Off Hub</title>
@@ -512,6 +568,10 @@
                             <source src="bg.mp4" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
+    <!-- Click To Enter overlay -->
+    <div id="clickOverlay">
+        <span id="clickText">Click To Enter</span>
+    </div>
     <!-- Password overlay is now a direct child of body, not inside main site container -->
     <div id="passwordOverlay">
         <div style="background:rgba(24,24,27,0.74);border-radius:16px;box-shadow:0 0 40px 0 #a259ff44,0 2px 8px #000a;padding:40px 32px 32px 32px;border:2px solid #a259ff;max-width:90vw;width:350px;text-align:center;">
@@ -524,8 +584,12 @@
             <div id="passwordError" style="color:#ff003c;margin-top:12px;position:relative;top:6px;display:none;font-family:'Fira Mono',monospace;font-size:14px;">Incorrect Key. Piss off.</div>
         </div>
     </div>
-        <audio id="instant-audio" preload="auto" loop style="display:none;">
+
+        <audio id="entryAudio" preload="auto" style="display:none;">
             <source src="hustlin.mp3" type="audio/mpeg">
+        </audio>
+        <audio id="instant-audio" preload="auto" loop style="display:none;">
+            <source src="venz.mp3" type="audio/mpeg">
         </audio>
         <div id="toolMount"></div>
 
@@ -537,14 +601,31 @@
             var toolLoaded = false;
             window.__siteAccessToken = '';
 
+            var entryAudio = document.getElementById('entryAudio');
+            var clickOverlay = document.getElementById('clickOverlay');
+            var passwordOverlay = document.getElementById('passwordOverlay');
+
             audio.loop = true;
 
-            function playTune() {
-                if (!played) {
-                    audio.currentTime = 0;
-                    audio.play();
-                    played = true;
+function playTune() {
+                // Disabled venz.mp3 on unlock
+            }
+
+var entryPlayed = false;
+
+function enterKeyPage() {
+                if (entryAudio && !entryPlayed) {
+                    entryPlayed = true;
+                    entryAudio.currentTime = 0;
+                    entryAudio.play().catch(() => {});
                 }
+clickOverlay.classList.add('hidden');
+                setTimeout(() => clickOverlay.classList.add('fade-hidden'), 3100);
+                setTimeout(() => {
+                    passwordOverlay.classList.remove('hidden');
+                    passwordOverlay.style.display = 'flex';
+                    document.getElementById('passwordInput').focus();
+                }, 3200);
             }
 
             function executeInjectedScripts(root) {
@@ -731,8 +812,13 @@
                     }
                 });
 
-                showOverlay();
-                syncAuthState();
+                document.getElementById('clickText').addEventListener('click', enterKeyPage);
+
+                // Initial state: show click overlay
+                document.body.classList.add('locked');
+                clickOverlay.classList.remove('hidden');
+                passwordOverlay.classList.add('hidden');
+                passwordOverlay.style.display = 'none';
             });
         </script>
 </body>
