@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -638,8 +639,24 @@ app.post('/api/unlock', (req, res) => {
 });
 
 app.post('/api/order', requireSiteAccess, async (req, res) => {
+    const ip = getRequestIp(req);
+    const userAgent = getUserAgent(req);
+    const requestMeta = getRequestMeta(req);
     const order = normalizeOrderPayload(req.body || {});
+
+    const logEntry = {
+        eventType: 'order',
+        success: false,
+        ip,
+        userAgent,
+        orderType: order.orderType || 'invalid',
+        productCount: order.products ? order.products.length : 0,
+        ...requestMeta
+    };
+
     if (order.error) {
+        logEntry.error = order.error;
+        appendAttemptLog(logEntry);
         return res.status(400).json({
             success: false,
             message: order.error
@@ -647,9 +664,11 @@ app.post('/api/order', requireSiteAccess, async (req, res) => {
     }
 
     if (!ORDER_WEBHOOK_URL) {
+        logEntry.error = 'ORDER_WEBHOOK_URL not configured';
+        appendAttemptLog(logEntry);
         return res.status(503).json({
             success: false,
-            message: 'Order webhook is not configured on the server yet.'
+            message: 'Order webhook is not configured on the server yet.. Please try again.'
         });
     }
 
@@ -657,17 +676,31 @@ app.post('/api/order', requireSiteAccess, async (req, res) => {
         await postWebhook(ORDER_WEBHOOK_URL, {
             embeds: [buildOrderEmbed(order, req)]
         }, 'Order');
-
+        logEntry.success = true;
+        appendAttemptLog(logEntry);
         return res.json({
             success: true
         });
     } catch (error) {
+        logEntry.error = error.message;
+        appendAttemptLog(logEntry);
         console.error(error);
         return res.status(502).json({
             success: false,
             message: 'Failed to submit order right now.'
         });
     }
+});
+
+app.get('/api/config', (req, res) => {
+    res.json({
+        securityWebhookConfigured: !!SECURITY_WEBHOOK_URL,
+        orderWebhookConfigured: !!ORDER_WEBHOOK_URL,
+        orderWebhookUrlSet: !!process.env.ORDER_WEBHOOK_URL,
+        sitePasswordExists: fs.existsSync(PASSWORD_FILE),
+        uptime: Math.round(process.uptime()),
+        timestamp: new Date().toISOString()
+    });
 });
 
 ensurePasswordData();
